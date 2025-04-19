@@ -18,6 +18,7 @@ def webhook():
 
         # JSONデータを取得
         print("① JSON取得前")
+        print("🧪 request.data:", request.data)  # ← ここで生のデータを確認！
         body = request.get_json(force=True)
         print("② JSON取得後:", body)
 
@@ -48,34 +49,3 @@ def webhook():
             messages=[{"role": "user", "content": user_message}]
         )
         reply_text = response["choices"][0]["message"]["content"]
-        print("⑥ ChatGPT応答:", reply_text)
-
-        # LINEに返信
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}"
-        }
-        payload = {
-            "replyToken": reply_token,
-            "messages": [{"type": "text", "text": reply_text}]
-        }
-
-        line_response = requests.post(
-            "https://api.line.me/v2/bot/message/reply",
-            headers=headers,
-            json=payload
-        )
-
-        print("⑦ LINE応答ステータス:", line_response.status_code)
-        print("⑧ LINE応答内容:", line_response.text)
-
-        return "OK", 200
-
-    except Exception as e:
-        print("⚠️ エラー内容:", e)
-        return "Internal Server Error", 500
-
-
-# Flaskアプリ起動設定（Render向け）
-if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=8080)
