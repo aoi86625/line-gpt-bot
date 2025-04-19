@@ -1,14 +1,15 @@
 from flask import Flask, request
-import openai
 import os
 import requests
-import traceback  # ← 追加
+import traceback
+from openai import OpenAI  # ✅ 最新版の書き方
 
 app = Flask(__name__)
 
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-openai.api_key = OPENAI_API_KEY
+
+client = OpenAI(api_key=OPENAI_API_KEY)  # ✅ クライアント生成
 
 
 @app.route("/", methods=['POST'])
@@ -32,16 +33,16 @@ def webhook():
             print("message.text または replyToken が存在しません")
             return "Invalid format", 200
 
-        response = openai.ChatCompletion.create(
+        # ✅ ChatCompletion 最新版構文
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{
                 "role": "user",
                 "content": user_message
             }]
         )
-        print("OpenAI応答:", response)  # ← 応答の中身を確認
-
-        reply_text = response["choices"][0]["message"]["content"]
+        reply_text = response.choices[0].message.content
+        print("OpenAI応答:", reply_text)
 
         headers = {
             "Content-Type": "application/json",
@@ -68,7 +69,7 @@ def webhook():
 
     except Exception as e:
         print("⚠️ エラー内容:", e)
-        traceback.print_exc()  # ← スタックトレースを表示
+        traceback.print_exc()
         return "Internal Server Error", 500
 
 
