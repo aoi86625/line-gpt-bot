@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: line-gpt-bot
+    env: python
+    buildCommand: "poetry install"
+    startCommand: "poetry run python main.py"
+    pythonVersion: 3.10.8
