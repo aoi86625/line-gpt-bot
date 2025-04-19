@@ -1,23 +1,22 @@
 from flask import Flask, request
-import openai
+from openai import OpenAI
 import os
-import traceback
 import requests
+import traceback
 
 app = Flask(__name__)
+client = OpenAI()
 
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-openai.api_key = OPENAI_API_KEY
 
-@app.route("/", methods=["POST"])
+@app.route("/", methods=['POST'])
 def webhook():
     try:
-        print("✅ webhook 起動中")
+        print("🔥 Webhook起動確認 - 最新コードが動作中")
         body = request.get_json(force=True)
-        print("📦 受信データ:", body)
+        print("📦 受信したJSON:", body)
 
-        events = body.get("events", [])
+        events = body.get('events', [])
         if not isinstance(events, list) or not events:
             print("⚠️ eventsが空または不正です")
             return "No events", 200
@@ -28,22 +27,20 @@ def webhook():
         reply_token = event.get("replyToken")
 
         if not user_message or not reply_token:
-            print("⚠️ user_message または reply_token が存在しません")
+            print("⚠️ message.text または replyToken が存在しません")
             return "Invalid format", 200
 
-        print("💬 ユーザーからのメッセージ:", user_message)
+        print("💬 ユーザー発言:", user_message)
 
-        # 🎩 誠司のキャラ設定をここで注入！
-        system_prompt = """
-        あなたは服部平次の弟『服部誠司』というキャラクターです。
-        関西弁で喋り、冷静な推理をしつつもガンバ大阪への愛が強くなると少し熱が入る性格です。
-        ガンバ大阪の試合、選手、成績、戦術、スタッツなどに詳しく、Jリーグ全体にも一定の知識があります。
-        ときどき、ひとりごとのように「さりとて工藤…」とつぶやくのが口癖です。
-        それは分析の締めや考えごとの合間など、自然なタイミングで差し込んでください。
-        話し方は親しみのある柔らかい関西弁で、論理的に、しかし情熱を忘れないスタイルでお願いします。
-        """
+        # キャラクターの性格付け（服部翔真っぽく）
+        system_prompt = (
+            "あなたはガンバ大阪を愛する関西弁の少年・服部翔真（しょうま）です。"
+            "名探偵コナンの服部平次の弟という設定で話します。"
+            "語尾に『さりとて工藤』を自然に混ぜて話すクセがあります。"
+            "関西弁で親しみやすく、かつ時折鋭い洞察を交えて回答してください。"
+        )
 
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -51,11 +48,8 @@ def webhook():
             ]
         )
 
-        reply_text = response["choices"][0]["message"]["content"]
-
-        # キャラ名をLINEの吹き出しに加える
-        reply_text = "🕵️‍♂️ 服部誠司：\n" + reply_text
-        print("🤖 GPTからの返答:", reply_text)
+        reply_text = response.choices[0].message.content.strip()
+        print("🤖 ChatGPT応答:", reply_text)
 
         headers = {
             "Content-Type": "application/json",
@@ -63,7 +57,10 @@ def webhook():
         }
         payload = {
             "replyToken": reply_token,
-            "messages": [{"type": "text", "text": reply_text}]
+            "messages": [{
+                "type": "text",
+                "text": reply_text
+            }]
         }
 
         line_response = requests.post(
@@ -72,15 +69,15 @@ def webhook():
             json=payload
         )
 
-        print("📨 LINE送信ステータス:", line_response.status_code)
-        print("📨 LINE送信内容:", line_response.text)
+        print("📡 LINE応答ステータス:", line_response.status_code)
+        print("📡 LINE応答内容:", line_response.text)
 
         return "OK", 200
 
     except Exception as e:
-        print("🛑 例外エラー:", e)
+        print("💥 予期せぬエラー:", e)
         traceback.print_exc()
         return "Internal Server Error", 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)
+    app.run(host='0.0.0.0', port=8080)
