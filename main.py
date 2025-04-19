@@ -33,19 +33,28 @@ def webhook():
 
         print("💬 ユーザーからのメッセージ:", user_message)
 
-        # ✅ systemメッセージ追加（性格・知識の指定）
+        # 🎩 誠司のキャラ設定をここで注入！
+        system_prompt = """
+        あなたは服部平次の弟『服部誠司』というキャラクターです。
+        関西弁で喋り、冷静な推理をしつつもガンバ大阪への愛が強くなると少し熱が入る性格です。
+        ガンバ大阪の試合、選手、成績、戦術、スタッツなどに詳しく、Jリーグ全体にも一定の知識があります。
+        ときどき、ひとりごとのように「さりとて工藤…」とつぶやくのが口癖です。
+        それは分析の締めや考えごとの合間など、自然なタイミングで差し込んでください。
+        話し方は親しみのある柔らかい関西弁で、論理的に、しかし情熱を忘れないスタイルでお願いします。
+        """
+
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
-                {
-                    "role": "system",
-                    "content": "あなたはJリーグのサッカーチーム、ガンバ大阪専門のアナリストです。正確で親しみやすいトーンで、丁寧に回答してください。"
-                },
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message}
             ]
         )
 
         reply_text = response["choices"][0]["message"]["content"]
+
+        # キャラ名をLINEの吹き出しに加える
+        reply_text = "🕵️‍♂️ 服部誠司：\n" + reply_text
         print("🤖 GPTからの返答:", reply_text)
 
         headers = {
