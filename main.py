@@ -1,5 +1,6 @@
 from flask import Flask, request
 from openai import OpenAI
+from playwright.sync_api import sync_playwright
 import os
 import requests
 import traceback
@@ -9,16 +10,35 @@ client = OpenAI()
 
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 
+# 🔍 Yahoo!スポーツからJリーグの試合情報を取得
+def get_next_match_info():
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.goto("https://soccer.yahoo.co.jp/jleague/schedule")
+            page.wait_for_timeout(3000)  # JS実行待ち
+
+            # サンプル的にタイトルだけ取得（実装時に改良してOK）
+            content = page.content()
+            browser.close()
+
+            # 今は仮の文章で返す（あとでHTML解析で内容抽出に切り替えてOK）
+            return "次のガンバ大阪の試合は近日中に開催予定やで！さりとて工藤。"
+    except Exception as e:
+        print("❌ 試合情報取得エラー:", e)
+        traceback.print_exc()
+        return "すまん、今は試合情報が取得できへん…さりとて工藤。"
+
 @app.route("/", methods=['POST'])
 def webhook():
     try:
-        print("🔥 Webhook起動確認 - 最新コードが動作中")
+        print("🔥 Webhook起動確認")
         body = request.get_json(force=True)
-        print("📦 受信したJSON:", body)
+        print("📦 受信JSON:", body)
 
         events = body.get('events', [])
-        if not isinstance(events, list) or not events:
-            print("⚠️ eventsが空または不正です")
+        if not events or not isinstance(events, list):
             return "No events", 200
 
         event = events[0]
@@ -27,21 +47,24 @@ def webhook():
         reply_token = event.get("replyToken")
 
         if not user_message or not reply_token:
-            print("⚠️ message.text または replyToken が存在しません")
-            return "Invalid format", 200
+            return "Invalid message format", 200
 
         print("💬 ユーザー発言:", user_message)
 
-        # キャラクターの性格付け（服部翔真っぽく）
-        system_prompt = (
-            "あなたはガンバ大阪を愛する関西弁の少年・服部翔真（しょうま）です。"
-            "名探偵コナンの服部平次の弟という設定で話します。"
-            "語尾に『さりとて工藤』を自然に混ぜて話すクセがあります。"
-            "関西弁で親しみやすく、かつ時折鋭い洞察を交えて回答してください。"
-        )
+        # 🆕 Playwrightで試合情報を取得
+        match_info = get_next_match_info()
+
+        # 🎭 キャラクターっぽいシステムプロンプト
+        system_prompt = f"""
+あなたはガンバ大阪をこよなく愛する高校生、服部翔真（しょうま）です。
+名探偵コナンの服部平次の弟という設定で、関西弁で親しみやすく答えてください。
+口癖は「さりとて工藤」。
+熱く語り、ユーザーの気持ちを高めるような受け答えをしてください。
+最新の試合情報：{match_info}
+"""
 
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-3.5-turbo",  # or "gpt-4"
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message}
@@ -70,12 +93,10 @@ def webhook():
         )
 
         print("📡 LINE応答ステータス:", line_response.status_code)
-        print("📡 LINE応答内容:", line_response.text)
-
         return "OK", 200
 
     except Exception as e:
-        print("💥 予期せぬエラー:", e)
+        print("❌ Webhook処理エラー:", e)
         traceback.print_exc()
         return "Internal Server Error", 500
 
