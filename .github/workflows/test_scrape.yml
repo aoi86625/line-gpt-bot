@@ -26,6 +26,9 @@ jobs:
           poetry lock
           poetry install --no-root  # ← ここを修正！
 
+      - name: Install Playwright browsers
+        run: poetry run playwright install --with-deps
+
       - name: Run scrape script
         run: poetry run python job_scrape.py
 
