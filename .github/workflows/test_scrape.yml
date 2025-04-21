@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: |
           poetry lock
-          poetry install
+          poetry install --no-root  # ← ここを修正！
 
       - name: Run scrape script
         run: poetry run python job_scrape.py
