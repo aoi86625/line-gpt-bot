@@ -33,6 +33,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add cache/*.txt cache/*.html || true
+          git add cache/ || true
           git commit -m "Update scraped match info" || echo "Nothing to commit"
           git push
+
