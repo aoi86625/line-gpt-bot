@@ -1,60 +1,49 @@
-from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
-import os
+from datetime import datetime
 
-def get_match_info():
+# ==== ✅ ここを書き換えると他チーム対応可能 ====
+# 例: "ガンバ", "G大阪", "アントラーズ", "鹿島", "浦和"など
+target_team = "G大阪"
+
+# ==== ✅ HTMLファイルを読み込み ====
+with open("debug_team_page (4).html", encoding="utf-8") as f:
+    soup = BeautifulSoup(f, "html.parser")
+
+# ==== ✅ 全試合を取得して、未来かつ対象チームが含まれるものだけに絞る ====
+matches = soup.select(".match-info")
+future_matches = []
+
+for match in matches:
     try:
-        print("🟡 処理開始：ガンバ大阪の試合情報を取得します")
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
-            page.goto("https://soccer.yahoo.co.jp/jleague/category/j1/teams/128/schedule?gk=2", timeout=20000)
+        date_text = match.select_one(".date").get_text(strip=True)
+        match_date = datetime.strptime(date_text, "%Y.%m.%d")
+        if match_date.date() < datetime.today().date():
+            continue  # 過去試合は除外
 
-            print("✅ ページアクセス成功")
+        match_text = match.get_text()
+        if target_team in match_text:
+            team_elems = match.select(".team-name")
+            teams = [t.get_text(strip=True) for t in team_elems]
+            stadium = match.select_one(".stadium").get_text(strip=True)
 
-            html = page.content()
-            os.makedirs("cache", exist_ok=True)
-            with open("cache/debug_team_page.html", "w", encoding="utf-8") as f:
-                f.write(html)
-                print("📄 HTMLを cache/debug_team_page.html に保存完了")
+            future_matches.append({
+                "date": date_text,
+                "teams": teams,
+                "stadium": stadium,
+                "raw": match_text
+            })
 
-            soup = BeautifulSoup(html, "html.parser")
-            browser.close()
+    except Exception:
+        continue  # パースエラー等があっても無視
 
-            # 最初の試合行を抽出
-            first_row = soup.select_one("section#scheduleTable tbody tr")
-            if not first_row:
-                print("⚠️ 試合行が見つかりませんでした")
-                return "試合情報が見つかりませんでした…"
+# ==== ✅ 最も近い試合を1件選んで出力 ====
+if future_matches:
+    future_matches.sort(key=lambda m: datetime.strptime(m["date"], "%Y.%m.%d"))
+    next_match = future_matches[0]
+    team_vs = " vs ".join(next_match["teams"])
 
-            cells = first_row.find_all("td")
-            if len(cells) < 7:
-                print("⚠️ 試合情報の列が不足しています")
-                return "試合情報が不完全です…"
-
-            # 日時, 種別, ホーム, スコア, アウェイ, 会場 を取得
-            date = cells[0].get_text(strip=True)
-            category = cells[1].get_text(strip=True)
-            home = cells[3].get_text(strip=True)
-            score = cells[4].get_text(strip=True)
-            away = cells[5].get_text(strip=True)
-            venue = cells[6].get_text(strip=True)
-
-            match_info = f"{date}｜{category}｜{home} {score} {away}｜{venue}"
-            print("🟢 抽出成功:", match_info)
-            return f"【自動取得】次の試合：{match_info}"
-
-    except Exception as e:
-        print("❌ エラー発生:", e)
-        return f"試合情報の取得に失敗しました…（{e}）"
-
-def save_to_cache(info):
-    os.makedirs("cache", exist_ok=True)
-    with open("cache/match_info.txt", "w", encoding="utf-8") as f:
-        f.write(info)
-    print("✅ キャッシュに保存しました")
-
-if __name__ == "__main__":
-    info = get_match_info()
-    save_to_cache(info)
-    print("🎉 完了！")
+    with open("match_info.txt", "w", encoding="utf-8") as f:
+        f.write(f"{target_team}の次の試合: {next_match['date']} {team_vs} @ {next_match['stadium']}")
+    print("✅ match_info.txt に書き込み完了！")
+else:
+    print(f"⚠️ {target_team}の未来の試合が見つかりませんでした。")
