@@ -4,7 +4,7 @@ import os
 
 def get_match_info():
     try:
-        print("🟡 処理開始：ガンバ大阪のスケジュールページにアクセスします")
+        print("🟡 処理開始：ガンバ大阪の試合情報を取得します")
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
@@ -22,18 +22,15 @@ def get_match_info():
             soup = BeautifulSoup(html, "html.parser")
             browser.close()
 
-            # スケジュールテーブルから最初の試合を抽出
-            match_table = soup.find("table", class_="scheduleTable")
-            first_row = match_table.find("tr") if match_table else None
-
-            if first_row:
-                cells = first_row.find_all("td")
-                match_text = " | ".join(cell.get_text(strip=True) for cell in cells[:3])  # 日付・相手・場所など
-                print("🟢 抽出成功:", match_text)
-                return f"【自動取得】次の試合：{match_text}"
-            else:
-                print("⚠️ 試合テーブルが見つかりませんでした")
+            # 試合情報の最初の1つ目を取得
+            match_box = soup.select_one("div.sc-cBoprd")  # 各試合ブロックの親要素
+            if not match_box:
+                print("⚠️ 試合情報のブロックが見つかりませんでした")
                 return "試合情報が見つかりませんでした…"
+
+            match_text = match_box.get_text(separator="｜", strip=True)
+            print("🟢 抽出成功:", match_text)
+            return f"【自動取得】次の試合：{match_text}"
 
     except Exception as e:
         print("❌ エラー発生:", e)
