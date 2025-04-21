@@ -7,22 +7,25 @@ def get_match_info():
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
-            page.goto("https://soccer.yahoo.co.jp/jleague/schedule")
-
-            # 「Ｇ大阪」が入ってる試合が出るまで待機
+            page.goto("https://soccer.yahoo.co.jp/jleague/", timeout=15000)
+            
+            # "Ｇ大阪"という文字が含まれる要素が出るまで最大10秒待機
             page.wait_for_selector("a:has-text('Ｇ大阪')", timeout=10000)
 
+            # ページのHTMLを取得し、BeautifulSoupで解析
             html = page.content()
             soup = BeautifulSoup(html, "html.parser")
             browser.close()
 
-            # 「ガンバ大阪」の行を探して次の対戦相手を取得
-            gamba_row = soup.find("a", string=lambda t: "Ｇ大阪" in t if t else False)
-            if gamba_row:
-                match_text = gamba_row.get_text(strip=True)
+            # "Ｇ大阪"を含むリンク（次の試合）を探す
+            gamba_link = soup.find("a", string=lambda t: "Ｇ大阪" in t if t else False)
+
+            if gamba_link:
+                match_text = gamba_link.get_text(strip=True)
                 return f"【自動取得】次の試合：{match_text}"
             else:
                 return "ガンバ大阪の試合が見つからなかったで…"
+                
     except Exception as e:
         return f"試合情報の取得に失敗しました…（{e}）"
 
