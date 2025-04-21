@@ -8,9 +8,12 @@ def get_match_info():
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
             page.goto("https://soccer.yahoo.co.jp/jleague/schedule")
-            page.wait_for_timeout(3000)
 
-            soup = BeautifulSoup(page.content(), "html.parser")
+            # 「Ｇ大阪」が入ってる試合が出るまで待機
+            page.wait_for_selector("a:has-text('Ｇ大阪')", timeout=10000)
+
+            html = page.content()
+            soup = BeautifulSoup(html, "html.parser")
             browser.close()
 
             # 「ガンバ大阪」の行を探して次の対戦相手を取得
