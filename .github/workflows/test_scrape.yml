@@ -3,27 +3,36 @@ name: Test Scrape
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write  # ← これがないと git push が失敗するので注意！
+
 jobs:
-  test:
+  scrape:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10.12'
+          python-version: '3.10'
+
+      - name: Install Poetry
+        run: pip install poetry
 
       - name: Install dependencies
         run: |
-          pip install playwright
-          playwright install chromium
-          pip install beautifulsoup4
+          poetry lock
+          poetry install
 
       - name: Run scrape script
-        run: python job_scrape.py
+        run: poetry run python job_scrape.py
 
-      - name: Show output
-        run: cat cache/match_info.txt
+      - name: Commit scraped data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add cache/*.txt cache/*.html || true
+          git commit -m "Update scraped match info" || echo "Nothing to commit"
+          git push
