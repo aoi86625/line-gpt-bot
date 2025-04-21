@@ -8,7 +8,8 @@ def get_match_info():
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
-            page.goto("https://soccer.yahoo.co.jp/team/52", timeout=20000)
+            page.goto("https://soccer.yahoo.co.jp/jleague/category/j1/teams/128/schedule?gk=2", timeout=20000)
+
 
             print("✅ チームページアクセス成功")
 
