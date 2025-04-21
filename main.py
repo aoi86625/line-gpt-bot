@@ -91,3 +91,10 @@ def webhook():
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=8080)
+# --- デバッグテスト：スクレイピング動作確認 ---
+if __name__ == "__main__":
+    from job_scrape import get_match_info
+    print("🎯 スクレイピングテスト実行中...")
+    info = get_match_info()
+    print("🎉 取得結果 ↓↓↓")
+    print(info)
