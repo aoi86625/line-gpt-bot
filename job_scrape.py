@@ -39,4 +39,10 @@ def get_match_info():
 def save_to_cache(info):
     os.makedirs("cache", exist_ok=True)
     with open("cache/match_info.txt", "w", encoding="utf-8") as f:
-        f.write
+        f.write(info)
+    print("✅ キャッシュに保存しました")
+
+if __name__ == "__main__":
+    info = get_match_info()
+    save_to_cache(info)
+    print("🎉 完了！")
