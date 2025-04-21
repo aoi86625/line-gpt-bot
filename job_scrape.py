@@ -12,7 +12,6 @@ def get_match_info():
 
             print("✅ ページアクセス成功")
 
-            # HTML取得＆保存（デバッグ用）
             html = page.content()
             os.makedirs("cache", exist_ok=True)
             with open("cache/debug_team_page.html", "w", encoding="utf-8") as f:
@@ -22,15 +21,28 @@ def get_match_info():
             soup = BeautifulSoup(html, "html.parser")
             browser.close()
 
-            # 試合情報の最初の1つ目を取得
-            match_box = soup.select_one("div.sc-cBoprd")  # 各試合ブロックの親要素
-            if not match_box:
-                print("⚠️ 試合情報のブロックが見つかりませんでした")
+            # 最初の試合行を抽出
+            first_row = soup.select_one("section#scheduleTable tbody tr")
+            if not first_row:
+                print("⚠️ 試合行が見つかりませんでした")
                 return "試合情報が見つかりませんでした…"
 
-            match_text = match_box.get_text(separator="｜", strip=True)
-            print("🟢 抽出成功:", match_text)
-            return f"【自動取得】次の試合：{match_text}"
+            cells = first_row.find_all("td")
+            if len(cells) < 7:
+                print("⚠️ 試合情報の列が不足しています")
+                return "試合情報が不完全です…"
+
+            # 日時, 種別, ホーム, スコア, アウェイ, 会場 を取得
+            date = cells[0].get_text(strip=True)
+            category = cells[1].get_text(strip=True)
+            home = cells[3].get_text(strip=True)
+            score = cells[4].get_text(strip=True)
+            away = cells[5].get_text(strip=True)
+            venue = cells[6].get_text(strip=True)
+
+            match_info = f"{date}｜{category}｜{home} {score} {away}｜{venue}"
+            print("🟢 抽出成功:", match_info)
+            return f"【自動取得】次の試合：{match_info}"
 
     except Exception as e:
         print("❌ エラー発生:", e)
