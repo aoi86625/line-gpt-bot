@@ -1,44 +1,58 @@
+import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 
-# ==== ✅ ここを書き換えると他チーム対応可能 ====
-# 例: "ガンバ", "G大阪", "アントラーズ", "鹿島", "浦和"など
+# ==== ✅ チーム指定（将来Bot連携で変数化）====
 target_team = "G大阪"
 
-# ==== ✅ HTMLファイルを読み込み ====
-with open("debug_team_page (4).html", encoding="utf-8") as f:
-    soup = BeautifulSoup(f, "html.parser")
+# ==== ✅ 対象URL ====
+url = "https://soccer.yahoo.co.jp/jleague/category/j1/teams/128/schedule?gk=2"
 
-# ==== ✅ 全試合を取得して、未来かつ対象チームが含まれるものだけに絞る ====
-matches = soup.select(".match-info")
+# ==== ✅ HTMLを取得してローカルに保存（debug用）====
+res = requests.get(url)
+res.encoding = res.apparent_encoding
+
+with open("team_page.html", "w", encoding="utf-8") as f:
+    f.write(res.text)
+
+# ==== ✅ BeautifulSoupで読み込み ====
+soup = BeautifulSoup(res.text, "html.parser")
+
+# ==== ✅ 試合情報の抽出 ====
+matches = soup.select("table tbody tr")
 future_matches = []
 
 for match in matches:
     try:
-        date_text = match.select_one(".date").get_text(strip=True)
-        match_date = datetime.strptime(date_text, "%Y.%m.%d")
+        # 日付の取得
+        date_text = match.select_one("th").get_text(strip=True)
+        # 日付の形式を整形
+        match_date = datetime.strptime(date_text, "%m/%d（%a）")
+        # 年を補完
+        match_date = match_date.replace(year=datetime.today().year)
         if match_date.date() < datetime.today().date():
-            continue  # 過去試合は除外
+            continue
 
-        match_text = match.get_text()
-        if target_team in match_text:
-            team_elems = match.select(".team-name")
-            teams = [t.get_text(strip=True) for t in team_elems]
-            stadium = match.select_one(".stadium").get_text(strip=True)
+        # チーム名の取得
+        teams = match.select("td")[2].get_text(strip=True).split("vs.")
+        teams = [team.strip() for team in teams]
+        if target_team not in teams:
+            continue
 
-            future_matches.append({
-                "date": date_text,
-                "teams": teams,
-                "stadium": stadium,
-                "raw": match_text
-            })
+        # スタジアムの取得
+        stadium = match.select("td")[3].get_text(strip=True)
+
+        future_matches.append({
+            "date": match_date.strftime("%Y/%m/%d"),
+            "teams": teams,
+            "stadium": stadium
+        })
 
     except Exception:
-        continue  # パースエラー等があっても無視
+        continue
 
 # ==== ✅ 最も近い試合を1件選んで出力 ====
 if future_matches:
-    future_matches.sort(key=lambda m: datetime.strptime(m["date"], "%Y.%m.%d"))
     next_match = future_matches[0]
     team_vs = " vs ".join(next_match["teams"])
 
