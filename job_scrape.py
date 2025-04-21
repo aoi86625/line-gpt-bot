@@ -9,8 +9,6 @@ def get_match_info():
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
             page.goto("https://soccer.yahoo.co.jp/jleague/category/j1/teams/128/schedule?gk=2", timeout=20000)
-
-
             print("✅ チームページアクセス成功")
 
             # HTML取得＆保存（デバッグ用）
@@ -23,15 +21,26 @@ def get_match_info():
             soup = BeautifulSoup(html, "html.parser")
             browser.close()
 
-            # 直近の試合情報を抽出（例：試合日・相手など）
-            match_section = soup.find("div", class_="sc-ebnZor")
-            if not match_section:
-                print("⚠️ 試合情報のセクションが見つかりませんでした")
-                return "試合情報が見つかりませんでした…"
+            # スケジュールテーブルから未決着（スコアが"-"）の最初の試合を探す
+            table = soup.select_one("table.sc-tableGame")
+            if not table:
+                return "試合情報テーブルが見つかりませんでした…"
 
-            match_text = match_section.get_text(strip=True)
-            print("🟢 抽出成功:", match_text)
-            return f"【自動取得】次の試合：{match_text}"
+            rows = table.find_all("tr")
+            for row in rows:
+                score = row.select_one(".sc-tableGame__scoreDetail")
+                if score and score.text.strip() == "-":
+                    date = row.select_one(".sc-tableGame__data--date")
+                    category = row.select_one(".sc-tableGame__data--category")
+                    teams = row.select_all(".sc-tableGame__data--team span")
+                    venue = row.select_one(".sc-tableGame__data--venue")
+
+                    if date and category and len(teams) == 2:
+                        match_info = f"{date.get_text(strip=True)} | {category.get_text(strip=True)} | {teams[0].text.strip()} vs {teams[1].text.strip()} @ {venue.get_text(strip=True) if venue else '会場未定'}"
+                        print("🟢 抽出成功:", match_info)
+                        return f"【自動取得】次の試合：{match_info}"
+
+            return "⚠️ 次の試合情報が見つかりませんでした"
 
     except Exception as e:
         print("❌ エラー発生:", e)
