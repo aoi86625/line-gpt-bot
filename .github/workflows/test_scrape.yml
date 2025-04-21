@@ -1,0 +1,26 @@
+name: Test Scrape
+
+on:
+  workflow_dispatch:  # 手動トリガー用
+
+jobs:
+  run-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          pip install poetry
+          poetry install
+
+      - name: Run scraping test
+        run: |
+          poetry run python test_scrape.py
