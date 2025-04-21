@@ -4,38 +4,35 @@ import os
 
 def get_match_info():
     try:
-        print("🟡 処理開始：ガンバ大阪の試合を探します")
+        print("🟡 処理開始：ガンバ大阪のチームページにアクセスします")
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
-            page.goto("https://soccer.yahoo.co.jp/jleague/", timeout=15000)
+            page.goto("https://soccer.yahoo.co.jp/team/63", timeout=20000)
 
             print("✅ ページアクセス成功")
 
-            # 「Ｇ大阪」が出るまで待つ（最大10秒）
-            page.wait_for_selector("a:has-text('Ｇ大阪')", timeout=10000)
-            print("✅ 'Ｇ大阪' 表示まで待機完了")
-
+            # HTML取得して保存（デバッグ用）
             html = page.content()
-            with open("cache/debug_page.html", "w", encoding="utf-8") as f:
+            with open("cache/debug_team_page.html", "w", encoding="utf-8") as f:
                 f.write(html)
-                print("📄 HTMLを debug_page.html に保存完了")
+                print("📄 HTMLを debug_team_page.html に保存完了")
 
             soup = BeautifulSoup(html, "html.parser")
 
             browser.close()
 
-            # 「Ｇ大阪」のリンクを探す
-            gamba_link = soup.find("a", string=lambda t: "Ｇ大阪" in t if t else False)
-            print("🔍 gamba_link =", gamba_link)
+            # 「次の試合」のブロックを探す（例：.scoreCard__item などのクラス）
+            next_match_block = soup.select_one(".scoreCard__item")  # 試合カード1個目を狙う
+            print("🔍 next_match_block =", next_match_block)
 
-            if gamba_link:
-                match_text = gamba_link.get_text(strip=True)
+            if next_match_block:
+                match_text = next_match_block.get_text(separator=" ", strip=True)
                 print("🟢 抽出成功:", match_text)
                 return f"【自動取得】次の試合：{match_text}"
             else:
-                print("⚠️ ガンバ大阪の試合リンクが見つかりませんでした")
-                return "ガンバ大阪の試合が見つからなかったで…"
+                print("⚠️ 次の試合情報が見つかりませんでした")
+                return "次の試合が見つからなかったで…"
 
     except Exception as e:
         print("❌ エラー発生:", e)
