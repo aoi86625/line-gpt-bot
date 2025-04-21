@@ -4,12 +4,13 @@ import os
 
 def get_match_info():
     try:
-        print("🟡 処理開始：ガンバ大阪のチームページにアクセスします")
+        print("🟡 処理開始：ガンバ大阪のスケジュールページにアクセスします")
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
             page.goto("https://soccer.yahoo.co.jp/jleague/category/j1/teams/128/schedule?gk=2", timeout=20000)
-            print("✅ チームページアクセス成功")
+
+            print("✅ ページアクセス成功")
 
             # HTML取得＆保存（デバッグ用）
             html = page.content()
@@ -21,26 +22,18 @@ def get_match_info():
             soup = BeautifulSoup(html, "html.parser")
             browser.close()
 
-            # スケジュールテーブルから未決着（スコアが"-"）の最初の試合を探す
-            table = soup.select_one("table.sc-tableGame")
-            if not table:
-                return "試合情報テーブルが見つかりませんでした…"
+            # スケジュールテーブルから最初の試合を抽出
+            match_table = soup.find("table", class_="scheduleTable")
+            first_row = match_table.find("tr") if match_table else None
 
-            rows = table.find_all("tr")
-            for row in rows:
-                score = row.select_one(".sc-tableGame__scoreDetail")
-                if score and score.text.strip() == "-":
-                    date = row.select_one(".sc-tableGame__data--date")
-                    category = row.select_one(".sc-tableGame__data--category")
-                    teams = row.select_all(".sc-tableGame__data--team span")
-                    venue = row.select_one(".sc-tableGame__data--venue")
-
-                    if date and category and len(teams) == 2:
-                        match_info = f"{date.get_text(strip=True)} | {category.get_text(strip=True)} | {teams[0].text.strip()} vs {teams[1].text.strip()} @ {venue.get_text(strip=True) if venue else '会場未定'}"
-                        print("🟢 抽出成功:", match_info)
-                        return f"【自動取得】次の試合：{match_info}"
-
-            return "⚠️ 次の試合情報が見つかりませんでした"
+            if first_row:
+                cells = first_row.find_all("td")
+                match_text = " | ".join(cell.get_text(strip=True) for cell in cells[:3])  # 日付・相手・場所など
+                print("🟢 抽出成功:", match_text)
+                return f"【自動取得】次の試合：{match_text}"
+            else:
+                print("⚠️ 試合テーブルが見つかりませんでした")
+                return "試合情報が見つかりませんでした…"
 
     except Exception as e:
         print("❌ エラー発生:", e)
