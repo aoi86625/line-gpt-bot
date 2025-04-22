@@ -3,56 +3,79 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 import os
 
+target_team = "G大阪"
+url = "https://soccer.yahoo.co.jp/jleague/category/j1/teams/128/schedule?gk=2"
+
 def get_match_info():
-    print("🟡 処理開始：ガンバ大阪の試合情報を取得します")
+    print("🟡 試合情報取得開始")
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
-        page.goto("https://soccer.yahoo.co.jp/jleague/category/j1/teams/128/schedule?gk=2", timeout=20000)
-        page.wait_for_timeout(5000)  # JS読み込み待ち
-        print("✅ ページアクセス成功")
+        print("🌐 ページアクセス中...")
+        page.goto(url, timeout=20000)
+
+        try:
+            page.wait_for_selector("div.GameCard", timeout=10000)
+            print("✅ GameCard の読み込み確認済み")
+        except:
+            print("❌ GameCard が表示されませんでした（タイムアウト）")
+            return "試合情報が取得できませんでした（カード未表示）"
 
         html = page.content()
-        os.makedirs("cache", exist_ok=True)
-        with open("cache/debug_team_page.html", "w", encoding="utf-8") as f:
-            f.write(html)
-            print("📄 HTMLを cache/debug_team_page.html に保存完了")
-
-        soup = BeautifulSoup(html, "html.parser")
         browser.close()
 
-        # 全試合行を取得（2行構成の最初の tr のみ）
-        rows = soup.select("section#scheduleTable tbody tr")
-        print(f"✅ 試合行検出数: {len(rows)}")
+    # 保存（デバッグ用）
+    os.makedirs("cache", exist_ok=True)
+    with open("cache/debug_team_page.html", "w", encoding="utf-8") as f:
+        f.write(html)
+        print("📄 HTMLを保存しました")
 
-        for row in rows:
-            cells = row.find_all("td")
-            if len(cells) < 7:
-                continue
+    soup = BeautifulSoup(html, "html.parser")
+    matches = soup.select("div.GameCard")
 
-            date = cells[0].get_text(strip=True)
-            category = cells[1].get_text(strip=True)
-            home = cells[3].get_text(strip=True)
-            score = cells[4].get_text(strip=True)
-            away = cells[5].get_text(strip=True)
-            venue = cells[6].get_text(strip=True)
+    print(f"✅ 試合カード検出数: {len(matches)}")
 
-            # 今日以降の試合を抽出（未来フィルタは任意）
-            if "vs" not in score:
-                continue  # スコアが未確定 = 未来の試合
+    future_matches = []
+    for card in matches:
+        raw = card.get_text(separator="|", strip=True)
 
-            match_info = f"{date}｜{category}｜{home} {score} {away}｜{venue}"
-            print("🟢 抽出成功:", match_info)
-            return f"【自動取得】次の試合：{match_info}"
+        if target_team not in raw:
+            continue
 
-        print("⚠️ 条件に合う試合が見つかりませんでした")
+        # 日付
+        time_tag = card.select_one("time")
+        if not time_tag or not time_tag.has_attr("datetime"):
+            continue
+        date_text = time_tag["datetime"][:10]
+        match_date = datetime.strptime(date_text, "%Y-%m-%d")
+        if match_date.date() < datetime.today().date():
+            continue
+
+        # 対戦カード、スタジアム抽出
+        lines = raw.split("|")
+        teams = next((l for l in lines if "vs" in l), "不明 vs 不明")
+        stadium = next((l for l in lines if "＠" in l or "スタジアム" in l), "スタジアム不明")
+
+        future_matches.append({
+            "date": match_date.strftime("%Y/%m/%d"),
+            "teams": teams,
+            "stadium": stadium
+        })
+
+    if future_matches:
+        next_match = future_matches[0]
+        info = f"{target_team}の次の試合: {next_match['date']} {next_match['teams']} @ {next_match['stadium']}"
+        print("✅ 試合情報抽出成功:", info)
+        return info
+    else:
+        print("⚠️ G大阪の未来の試合が見つかりませんでした")
         return "試合情報が見つかりませんでした…"
 
 def save_to_cache(info):
     os.makedirs("cache", exist_ok=True)
     with open("cache/match_info.txt", "w", encoding="utf-8") as f:
         f.write(info)
-    print("✅ キャッシュに保存しました")
+    print("✅ match_info.txt に保存完了")
 
 if __name__ == "__main__":
     info = get_match_info()
