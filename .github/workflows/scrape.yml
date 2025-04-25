@@ -6,33 +6,35 @@ on:
   workflow_dispatch:     # GitHubから手動実行も可能
 
 permissions:
-  contents: write  # 🔑 コミット＆プッシュのために必須（権限付与）
+  contents: write
 
 jobs:
   scrape-job:
     runs-on: ubuntu-latest
 
     steps:
-      # ✅ リポジトリから最新のコードを取得
       - uses: actions/checkout@v3
 
-      # ✅ Python環境のセットアップ（3.11使用）
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
-      # ✅ 必要ライブラリをインストール
+      # 🔑 日本語フォントをインストール
+      - name: Install Japanese Fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fonts-ipafont fonts-ipaexfont fonts-noto-cjk
+          fc-cache -fv
+
       - name: Install dependencies
         run: |
           pip install playwright beautifulsoup4
           playwright install chromium
 
-      # ✅ スクレイピングスクリプトを実行
       - name: Run scrape script
         run: python job_scrape.py
 
-      # ✅ 結果をGitHubにコミットしてプッシュ
       - name: Commit and push match_info.txt
         run: |
           git config user.name "github-actions[bot]"
