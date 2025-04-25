@@ -1,0 +1,39 @@
+name: Scrape G大阪 Match Info
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # 毎日午前9時（日本時間）に実行
+  workflow_dispatch:     # 手動実行も可能
+
+jobs:
+  scrape-job:
+    runs-on: ubuntu-latest
+
+    steps:
+      # GitHubリポジトリを取得
+      - uses: actions/checkout@v3
+
+      # Python環境を構築（Python 3.11使用）
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      # 必要なライブラリをインストール
+      - name: Install dependencies
+        run: |
+          pip install playwright beautifulsoup4
+          playwright install chromium
+
+      # Playwrightスクリプトを実行
+      - name: Run scrape script
+        run: python job_scrape.py
+
+      # 結果をコミットしてGitHubにpush
+      - name: Commit and push match_info.txt
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add cache/match_info.txt cache/screenshot.png cache/debug_team_page.html
+          git commit -m "Update G大阪 match info" || echo "No changes to commit"
+          git push
