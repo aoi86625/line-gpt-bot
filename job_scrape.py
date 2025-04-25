@@ -1,4 +1,5 @@
-from playwright.sync_api import sync_playwright
+import asyncio
+from playwright.async_api import async_playwright
 from bs4 import BeautifulSoup
 from datetime import datetime
 import os
@@ -6,73 +7,67 @@ import os
 target_team = "G大阪"
 url = "https://soccer.yahoo.co.jp/jleague/category/j1/teams/128/schedule?gk=2"
 
-def get_match_info():
-    print("🟡 試合情報取得開始")
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
-        print("🌐 ページアクセス中...")
-        page.goto(url, timeout=20000)
-        page.wait_for_selector(".sc-tableGame__data", timeout=10000)
-        html = page.content()
-        browser.close()
+async def scrape_gamba_schedule(url):
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        page = await browser.new_page()
+        await page.goto(url, wait_until='networkidle')
+        await page.wait_for_selector("section#scheduleTable table.sc-tableGame")
 
-    # 保存（デバッグ用）
-    os.makedirs("cache", exist_ok=True)
-    with open("cache/debug_team_page.html", "w", encoding="utf-8") as f:
-        f.write(html)
-        print("📄 HTMLを保存しました")
+        # ページのスクショとHTMLを保存（デバッグ用）
+        os.makedirs("cache", exist_ok=True)
+        await page.screenshot(path="cache/screenshot.png", full_page=True)
+        html = await page.content()
+        await browser.close()
 
-    soup = BeautifulSoup(html, "html.parser")
-    rows = soup.select("tr")
+        with open("cache/debug_team_page.html", "w", encoding="utf-8") as f:
+            f.write(html)
 
-    future_matches = []
-    for row in rows:
-        teams = row.select(".sc-tableGame__team")
-        if len(teams) < 2:
-            continue
+        soup = BeautifulSoup(html, 'html.parser')
+        schedule_section = soup.select_one("section#scheduleTable")
+        matches = schedule_section.select("table.sc-tableGame tbody tr")
 
-        team_names = [team.get_text(strip=True) for team in teams]
-        if target_team not in team_names:
-            continue
+        match_info = []
+        for match in matches:
+            date_elem = match.select_one("td.sc-tableGame__data--date")
+            teams_elem = match.select("td.sc-tableGame__data--team")
+            stadium_elem = match.select_one("td.sc-tableGame__data--venue")
 
-        date_cell = row.select_one(".sc-tableGame__data--date")
-        if date_cell:
-            match_date_text = date_cell.get_text(strip=True).split()[0]
-            try:
-                match_date = datetime.strptime(match_date_text, "%m/%d（%a）")
-                match_date = match_date.replace(year=datetime.now().year)
-            except:
-                continue
+            if date_elem and len(teams_elem) == 2:
+                date_text = date_elem.get_text(strip=True).split()[0]
+                try:
+                    match_date = datetime.strptime(date_text, "%m/%d（%a）")
+                    match_date = match_date.replace(year=datetime.now().year)
+                except:
+                    continue
 
-            if match_date.date() < datetime.today().date():
-                continue
+                if match_date.date() < datetime.today().date():
+                    continue
 
-            opponent = team_names[1] if team_names[0] == target_team else team_names[0]
-            stadium = row.select_one(".sc-tableGame__data--venue").get_text(strip=True) if row.select_one(".sc-tableGame__data--venue") else "スタジアム不明"
+                home_team = teams_elem[0].get_text(strip=True)
+                away_team = teams_elem[1].get_text(strip=True)
+                stadium = stadium_elem.get_text(strip=True) if stadium_elem else "スタジアム不明"
 
-            future_matches.append({
-                "date": match_date.strftime("%Y/%m/%d"),
-                "teams": f"{target_team} vs {opponent}",
-                "stadium": stadium
-            })
+                if target_team in [home_team, away_team]:
+                    opponent = away_team if home_team == target_team else home_team
+                    match_info.append({
+                        "date": match_date.strftime("%Y/%m/%d"),
+                        "teams": f"{target_team} vs {opponent}",
+                        "stadium": stadium
+                    })
 
-    if future_matches:
-        next_match = future_matches[0]
-        info = f"{target_team}の次の試合: {next_match['date']} {next_match['teams']} @ {next_match['stadium']}"
-        print("✅ 試合情報抽出成功:", info)
-        return info
-    else:
-        print("⚠️ G大阪の未来の試合が見つかりませんでした")
-        return "試合情報が見つかりませんでした…"
+        return match_info
 
 def save_to_cache(info):
     os.makedirs("cache", exist_ok=True)
     with open("cache/match_info.txt", "w", encoding="utf-8") as f:
-        f.write(info)
-    print("✅ match_info.txt に保存完了")
+        if info:
+            next_match = info[0]
+            f.write(f"{target_team}の次の試合: {next_match['date']} {next_match['teams']} @ {next_match['stadium']}")
+        else:
+            f.write("試合情報が見つかりませんでした…")
 
 if __name__ == "__main__":
-    info = get_match_info()
-    save_to_cache(info)
+    match_info = asyncio.run(scrape_gamba_schedule(url))
+    save_to_cache(match_info)
     print("🎉 完了！")
