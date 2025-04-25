@@ -3,76 +3,63 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 import os
 
-# Yahoo!ガンバ大阪試合日程ページ（2024年〜）
+target_team = "G大阪"
 url = "https://soccer.yahoo.co.jp/jleague/category/j1/teams/128/schedule?gk=2"
-target_marker = "G"  # G大阪の表記は "G" だけになってることがある
 
 def get_match_info():
     print("🟡 試合情報取得開始")
-
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         print("🌐 ページアクセス中...")
         page.goto(url, timeout=20000)
-
-        page.wait_for_timeout(3000)  # JS描画待機
-
-        os.makedirs("cache", exist_ok=True)
-        page.screenshot(path="cache/screenshot.png", full_page=True)
-        print("📸 スクリーンショット保存済み → cache/screenshot.png")
-
+        page.wait_for_selector(".sc-tableGame__data", timeout=10000)
         html = page.content()
         browser.close()
 
-    # HTMLを保存（デバッグ用）
+    # 保存（デバッグ用）
+    os.makedirs("cache", exist_ok=True)
     with open("cache/debug_team_page.html", "w", encoding="utf-8") as f:
         f.write(html)
+        print("📄 HTMLを保存しました")
 
-    # パース開始
     soup = BeautifulSoup(html, "html.parser")
-    rows = soup.select("table tbody tr")
-    print(f"✅ 試合行数: {len(rows)}")
+    rows = soup.select("tr")
 
     future_matches = []
-
     for row in rows:
-        imgs = row.find_all("img")
-        alt_texts = [img.get("alt", "") for img in imgs]
-
-        # Gを含むチームロゴが1個以上ある試合を対象とする
-        g_count = sum(1 for alt in alt_texts if target_marker in alt)
-        if g_count < 1 or len(alt_texts) < 2:
+        teams = row.select(".sc-tableGame__team")
+        if len(teams) < 2:
             continue
 
-        cols = row.find_all("td")
-        if len(cols) < 2:
+        team_names = [team.get_text(strip=True) for team in teams]
+        if target_team not in team_names:
             continue
 
-        # 日付取得
-        date_raw = cols[0].get_text(strip=True).split()[0]
-        try:
-            match_date = datetime.strptime(date_raw, "%m/%d")
-            match_date = match_date.replace(year=datetime.now().year)
-        except:
-            continue
+        date_cell = row.select_one(".sc-tableGame__data--date")
+        if date_cell:
+            match_date_text = date_cell.get_text(strip=True).split()[0]
+            try:
+                match_date = datetime.strptime(match_date_text, "%m/%d（%a）")
+                match_date = match_date.replace(year=datetime.now().year)
+            except:
+                continue
 
-        if match_date.date() < datetime.today().date():
-            continue
+            if match_date.date() < datetime.today().date():
+                continue
 
-        # チーム名とスタジアム（仮）
-        teams = " vs ".join(alt_texts[:2])
-        stadium = "スタジアム不明"
+            opponent = team_names[1] if team_names[0] == target_team else team_names[0]
+            stadium = row.select_one(".sc-tableGame__data--venue").get_text(strip=True) if row.select_one(".sc-tableGame__data--venue") else "スタジアム不明"
 
-        future_matches.append({
-            "date": match_date.strftime("%Y/%m/%d"),
-            "teams": teams,
-            "stadium": stadium
-        })
+            future_matches.append({
+                "date": match_date.strftime("%Y/%m/%d"),
+                "teams": f"{target_team} vs {opponent}",
+                "stadium": stadium
+            })
 
     if future_matches:
         next_match = future_matches[0]
-        info = f"G大阪の次の試合: {next_match['date']} {next_match['teams']} @ {next_match['stadium']}"
+        info = f"{target_team}の次の試合: {next_match['date']} {next_match['teams']} @ {next_match['stadium']}"
         print("✅ 試合情報抽出成功:", info)
         return info
     else:
