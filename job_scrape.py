@@ -6,7 +6,7 @@ API_KEY = "3"
 TEAM_ID = "134450"  # ガンバ大阪のID
 
 def get_next_match(api_key, team_id):
-    url = f"https://www.thesportsdb.com/api/v1/json/{api_key}/eventsnext.php?id={team_id}"
+    url = f"https://www.thesportsdb.com/api/v1/json/{api_key}/eventsnext.php?id={team_id}&t={int(time.time())}"
     response = requests.get(url)
     data = response.json()
 
