@@ -3,7 +3,7 @@ import os
 
 # 🔑 あなたのTheSportsDBのAPIキーをここに
 API_KEY = "3"
-TEAM_ID = "133604"  # ガンバ大阪のID
+TEAM_ID = "134450"  # ガンバ大阪のID
 
 def get_next_match(api_key, team_id):
     url = f"https://www.thesportsdb.com/api/v1/json/{api_key}/eventsnext.php?id={team_id}"
