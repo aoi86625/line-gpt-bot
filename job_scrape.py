@@ -1,5 +1,6 @@
 import requests
 import os
+import time
 
 # 🔑 あなたのTheSportsDBのAPIキーをここに
 API_KEY = "3"
