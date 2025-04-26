@@ -2,8 +2,8 @@ name: Scrape G大阪 Match Info
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # 毎日午前9時（日本時間）に自動実行
-  workflow_dispatch:     # GitHubから手動実行も可能
+    - cron: '0 0 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -20,17 +20,9 @@ jobs:
         with:
           python-version: '3.11'
 
-      # 🔑 日本語フォントをインストール
-      - name: Install Japanese Fonts
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y fonts-ipafont fonts-ipaexfont fonts-noto-cjk
-          fc-cache -fv
-
       - name: Install dependencies
         run: |
-          pip install playwright beautifulsoup4
-          playwright install chromium
+          pip install requests
 
       - name: Run scrape script
         run: python job_scrape.py
@@ -39,6 +31,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add cache/match_info.txt cache/screenshot.png cache/debug_team_page.html
+          git add cache/match_info.txt
           git commit -m "Update G大阪 match info" || echo "No changes to commit"
           git push
