@@ -1,36 +1,36 @@
-name: Scrape G大阪 Match Info
+import requests
+import os
 
-on:
-  schedule:
-    - cron: '0 0 * * *'  # 毎日午前9時に自動実行
-  workflow_dispatch:     # 手動実行もOK
+# 🔑 あなたのTheSportsDBのAPIキーをここに
+API_KEY = "3"
+TEAM_ID = "133604"  # ガンバ大阪のID
 
-permissions:
-  contents: write
+def get_next_match(api_key, team_id):
+    url = f"https://www.thesportsdb.com/api/v1/json/{api_key}/eventsnext.php?id={team_id}"
+    response = requests.get(url)
+    data = response.json()
 
-jobs:
-  scrape-job:
-    runs-on: ubuntu-latest
+    events = data.get("events")
+    if not events:
+        return "⚠️ 次の試合が見つかりませんでした。"
 
-    steps:
-      - uses: actions/checkout@v3
+    next_game = events[0]
+    date = next_game.get("dateEvent")
+    time = next_game.get("strTime")
+    home_team = next_game.get("strHomeTeam")
+    away_team = next_game.get("strAwayTeam")
+    venue = next_game.get("strVenue")
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
+    match_info = f"🗓️ {date} {time}\n⚽ {home_team} vs {away_team}\n🏟️ {venue}"
+    return match_info
 
-      - name: Install dependencies
-        run: |
-          pip install requests  # 👈 ここだけ追加！
+def save_to_cache(info):
+    os.makedirs("cache", exist_ok=True)
+    with open("cache/match_info.txt", "w", encoding="utf-8") as f:
+        f.write(info)
+    print("✅ match_info.txt に保存完了！")
 
-      - name: Run scrape script
-        run: python job_scrape.py
-
-      - name: Commit and push match_info.txt
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add cache/match_info.txt
-          git commit -m "Update G大阪 match info" || echo "No changes to commit"
-          git push
+if __name__ == "__main__":
+    info = get_next_match(API_KEY, TEAM_ID)
+    print(info)
+    save_to_cache(info)
