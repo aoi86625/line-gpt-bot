@@ -8,10 +8,8 @@ packages = []
 
 [tool.poetry.dependencies]
 python = "^3.10"
-playwright = "^1.51.0"
-beautifulsoup4 = "^4.13.0"
-requests = "^2.32.0"
-bs4 = "^0.0.2"
+requests = "^2.31.0"
+beautifulsoup4 = "^4.12.2"
 
 [build-system]
 requires = ["poetry-core"]
