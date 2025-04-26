@@ -10,7 +10,9 @@ packages = []
 python = "^3.10"
 requests = "^2.31.0"
 beautifulsoup4 = "^4.12.2"
-flask = "^2.2.5"  # 👈 これを追加する！！
+flask = "^2.3.3"  # ✅ 最新版でOK！
+openai = "^1.16.1"  # ✅ OpenAI APIも追加！
+
 
 [build-system]
 requires = ["poetry-core"]
